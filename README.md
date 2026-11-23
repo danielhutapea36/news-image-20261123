@@ -60,12 +60,15 @@ and six panels — one per story below.
 ## How it works
 
 `main.py` (Python 3.13, standard library only) copies the bundled
-`entry.png` byte-for-byte into the output directory
-(`$MAKEFUN_OUTPUT_DIR`, default `/output`). It first checks the PNG
-magic bytes, the 1 MiB size cap and the 1024×1024 dimensions of the
-source, copies the file, then reads the copy back and confirms it is
-identical before reporting its size and SHA-256. No network, no
-randomness, no timestamps — two runs write identical bytes.
+`entry.png` byte-for-byte into the output directory. The output
+directory comes from the `--out-dir` flag when given, otherwise from
+`$MAKEFUN_OUTPUT_DIR`, otherwise `/output`. Before writing anything
+it checks the PNG magic bytes, the 1 MiB size cap, the 1024×1024
+dimensions, and the SHA-256 digest of the source against the
+fingerprint recorded under "The image" below; it then copies the
+file, reads the copy back, and confirms it is identical before
+reporting its size and SHA-256. No network, no randomness, no
+timestamps — two runs write identical bytes.
 
 Run it locally with:
 
@@ -73,13 +76,30 @@ Run it locally with:
 MAKEFUN_OUTPUT_DIR=/tmp/ni23-out python3 main.py
 ```
 
+or with the flag instead of the environment variable:
+
+```
+python3 main.py --out-dir /tmp/ni23-out
+```
+
+To check the bundled image without writing a copy:
+
+```
+python3 main.py --verify-only
+```
+
+A `MAKEFUN_OUTPUT_DIR` that is set but empty is treated as a
+configuration error (exit code 1) instead of silently falling back
+to `/output`, so a typo in the environment is caught rather than
+writing the copy somewhere unexpected.
+
 ## Verification
 
 To confirm the copy is faithful, run the program once more into a
 fresh folder and compare the digests of the source and the copy:
 
 ```
-MAKEFUN_OUTPUT_DIR=/tmp/ni23-check python3 main.py
+python3 main.py --out-dir /tmp/ni23-check
 sha256sum entry.png /tmp/ni23-check/entry.png
 ```
 
@@ -89,6 +109,21 @@ must read `89 50 4E 47 0D 0A 1A 0A`, the PNG signature. If `entry.png`
 is missing beside `main.py`, over the size cap, or a copy fails any of
 these checks, the program stops with exit code 1 and a
 plain-language error instead of leaving behind a bad copy.
+
+## Rebuild notes (23 November 2026)
+
+`main.py` was rewritten from scratch on 23 November 2026 after the
+first version's local check failed on authorship: the original
+program reused the structure of the previous day's entry, so none of
+its lines counted as written in its own session. The rewrite keeps
+the exact same behaviour and the exact same output — the bundled
+`entry.png` is untouched, and two fresh runs still produce copies
+whose SHA-256 is `26acfec8…` — but the code is organised
+differently: argument parsing (`--out-dir`, `--source`,
+`--verify-only`), one validation function per check, and errors
+reported through a dedicated exception type instead of exiting from
+inside helper functions. The `--verify-only` mode and the empty
+`$MAKEFUN_OUTPUT_DIR` guard are new in this version.
 
 ## The image
 
